@@ -1,0 +1,23 @@
+services:
+  - type: worker
+    name: telegram-daily-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: BOT_TIMEZONE
+        value: Europe/Moscow
+      - key: SEND_HOUR
+        value: "0"
+      - key: SEND_MINUTE
+        value: "5"
+      - key: RELEASE_DATE
+        value: 2026-11-19
+      - key: REQUIRED_CHANNEL
+        value: "@t1lt54_vov"
+      - key: REQUIRED_CHANNEL_URL
+        value: https://t.me/t1lt54_vov
