@@ -179,6 +179,49 @@ async def users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_long_message(update.effective_message.reply_text, "\n".join(lines))
 
 
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_message is None or update.effective_user is None:
+        return
+
+    if not is_admin(update.effective_user.id):
+        await update.effective_message.reply_text(
+            "Эта команда доступна только администратору."
+        )
+        return
+
+    if not context.args:
+        await update.effective_message.reply_text(
+            "Используй так: /broadcast текст сообщения"
+        )
+        return
+
+    message_text = " ".join(context.args).strip()
+    sent_count, failed_count = await broadcast_to_subscribers(
+        context.application, message_text
+    )
+    await update.effective_message.reply_text(
+        f"Рассылка завершена.\nУспешно: {sent_count}\nОшибок: {failed_count}"
+    )
+
+
+async def broadcast_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_message is None or update.effective_user is None:
+        return
+
+    if not is_admin(update.effective_user.id):
+        await update.effective_message.reply_text(
+            "Эта команда доступна только администратору."
+        )
+        return
+
+    sent_count, failed_count = await broadcast_to_subscribers(
+        context.application, get_current_report_text()
+    )
+    await update.effective_message.reply_text(
+        f"Рассылка отчёта завершена.\nУспешно: {sent_count}\nОшибок: {failed_count}"
+    )
+
+
 async def verify_subscription_callback(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -335,6 +378,29 @@ async def send_daily_message(
         await asyncio.sleep(0.05)
 
 
+async def broadcast_to_subscribers(
+    application: Application, message_text: str
+) -> tuple[int, int]:
+    subscribers = list_subscribers()
+    sent_count = 0
+    failed_count = 0
+
+    for chat_id in subscribers:
+        try:
+            await application.bot.send_message(chat_id=chat_id, text=message_text)
+            sent_count += 1
+        except Forbidden:
+            logging.warning("Chat %s blocked the bot. Removing subscription.", chat_id)
+            remove_subscriber(chat_id)
+            failed_count += 1
+        except TelegramError as exc:
+            logging.exception("Broadcast failed for %s: %s", chat_id, exc)
+            failed_count += 1
+        await asyncio.sleep(0.05)
+
+    return sent_count, failed_count
+
+
 async def daily_notify(context: ContextTypes.DEFAULT_TYPE) -> None:
     subscribers = list_subscribers()
     if not subscribers:
@@ -364,6 +430,8 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("status", status))
     application.add_handler(CommandHandler("report", report))
     application.add_handler(CommandHandler("users", users))
+    application.add_handler(CommandHandler("broadcast", broadcast))
+    application.add_handler(CommandHandler("broadcast_report", broadcast_report))
     application.add_handler(CallbackQueryHandler(verify_subscription_callback, pattern="^check_subscription$"))
 
     application.job_queue.run_daily(
