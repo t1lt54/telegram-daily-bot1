@@ -31,6 +31,7 @@ DEFAULT_RELEASE_DATE = "2026-11-19"
 DEFAULT_TIMEZONE = "Europe/Moscow"
 DEFAULT_REQUIRED_CHANNEL = "@t1lt54_vov"
 DEFAULT_REQUIRED_CHANNEL_URL = "https://t.me/t1lt54_vov"
+MAX_MESSAGE_LENGTH = 4000
 
 
 def setup_logging() -> None:
@@ -86,6 +87,19 @@ def list_subscribers() -> list[int]:
         return [row[0] for row in cursor.fetchall()]
 
 
+def list_subscriber_details() -> list[tuple[int, str | None, str | None, str]]:
+    with sqlite3.connect(DB_PATH) as connection, closing(
+        connection.execute(
+            """
+            SELECT chat_id, username, first_name, subscribed_at
+            FROM subscribers
+            ORDER BY subscribed_at DESC
+            """
+        )
+    ) as cursor:
+        return cursor.fetchall()
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_chat is None or update.effective_user is None:
         return
@@ -137,6 +151,34 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     bot_timezone = ZoneInfo(os.getenv("BOT_TIMEZONE", DEFAULT_TIMEZONE))
     current_date = datetime.now(bot_timezone).date()
     await update.effective_message.reply_text(build_daily_message(current_date))
+
+
+async def users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_message is None or update.effective_user is None:
+        return
+
+    if not is_admin(update.effective_user.id):
+        await update.effective_message.reply_text(
+            "Эта команда доступна только администратору."
+        )
+        return
+
+    subscribers = list_subscriber_details()
+    if not subscribers:
+        await update.effective_message.reply_text("Подписчиков пока нет.")
+        return
+
+    lines = [f"Подписчики бота: {len(subscribers)}"]
+    for index, (chat_id, username, first_name, subscribed_at) in enumerate(
+        subscribers, start=1
+    ):
+        username_text = f"@{username}" if username else "без username"
+        first_name_text = first_name or "без имени"
+        lines.append(
+            f"{index}. {username_text} | {first_name_text} | {chat_id} | {subscribed_at}"
+        )
+
+    await send_long_message(update.effective_message.reply_text, "\n".join(lines))
 
 
 async def verify_subscription_callback(
@@ -227,6 +269,16 @@ async def check_required_subscription(
     return member.status in {"creator", "administrator", "member"}, channel_url
 
 
+def is_admin(user_id: int) -> bool:
+    raw_admin_id = os.getenv("ADMIN_ID", "").strip()
+    return raw_admin_id.isdigit() and int(raw_admin_id) == user_id
+
+
+async def send_long_message(send_func, text: str) -> None:
+    for start in range(0, len(text), MAX_MESSAGE_LENGTH):
+        await send_func(text[start : start + MAX_MESSAGE_LENGTH])
+
+
 def build_subscription_keyboard(channel_url: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
@@ -304,6 +356,7 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("stop", stop))
     application.add_handler(CommandHandler("status", status))
     application.add_handler(CommandHandler("report", report))
+    application.add_handler(CommandHandler("users", users))
     application.add_handler(CallbackQueryHandler(verify_subscription_callback, pattern="^check_subscription$"))
 
     application.job_queue.run_daily(

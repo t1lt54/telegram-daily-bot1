@@ -14,6 +14,7 @@ Telegram-бот на Python, который:
 - `/stop` - отключить ежедневные уведомления
 - `/status` - проверить статус подписки
 - `/report` - получить отчёт сразу, не дожидаясь ночной отправки
+- `/users` - показать список подписчиков, только для администратора
 
 ## Как работает подписка на канал
 
@@ -39,6 +40,7 @@ Telegram-бот на Python, который:
 
 ```env
 BOT_TOKEN=твой_токен_от_BotFather
+ADMIN_ID=твой_telegram_user_id
 DATA_DIR=.
 BOT_TIMEZONE=Europe/Moscow
 SEND_HOUR=0
@@ -171,6 +173,7 @@ git push -u origin main
 - `REQUIRED_CHANNEL` = `@t1lt54_vov`
 - `REQUIRED_CHANNEL_URL` = `https://t.me/t1lt54_vov`
 - `DATA_DIR` = `.` локально и `/var/data` на Render
+- `ADMIN_ID` = твой числовой Telegram user id для админ-команды `/users`
 - `PYTHON_VERSION` = `3.11.11`
 
 После сохранения Render соберёт и запустит бота. При каждом новом `git push` Render может автоматически перезапускать деплой.
