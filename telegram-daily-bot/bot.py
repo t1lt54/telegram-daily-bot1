@@ -222,6 +222,77 @@ async def broadcast_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     )
 
 
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_message is None or update.effective_user is None:
+        return
+
+    if not is_admin(update.effective_user.id):
+        await update.effective_message.reply_text(
+            "Эта команда доступна только администратору."
+        )
+        return
+
+    subscribers = list_subscriber_details()
+    total = len(subscribers)
+    with_username = sum(1 for _, username, _, _ in subscribers if username)
+    without_username = total - with_username
+
+    await update.effective_message.reply_text(
+        "Статистика бота:\n"
+        f"Всего подписчиков: {total}\n"
+        f"С username: {with_username}\n"
+        f"Без username: {without_username}"
+    )
+
+
+async def time_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_message is None:
+        return
+
+    bot_timezone = ZoneInfo(os.getenv("BOT_TIMEZONE", DEFAULT_TIMEZONE))
+    send_hour = int(os.getenv("SEND_HOUR", "0"))
+    send_minute = int(os.getenv("SEND_MINUTE", "5"))
+    now = datetime.now(bot_timezone)
+    next_run = now.replace(hour=send_hour, minute=send_minute, second=0, microsecond=0)
+    if next_run <= now:
+        from datetime import timedelta
+
+        next_run = next_run + timedelta(days=1)
+
+    await update.effective_message.reply_text(
+        f"Текущее время: {now.strftime('%d.%m.%Y %H:%M %Z')}\n"
+        f"Следующая рассылка: {next_run.strftime('%d.%m.%Y %H:%M %Z')}"
+    )
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_message is None or update.effective_user is None:
+        return
+
+    lines = [
+        "Доступные команды:",
+        "/start - включить ежедневные уведомления",
+        "/stop - отключить ежедневные уведомления",
+        "/status - проверить статус подписки",
+        "/report - получить отчёт сразу",
+        "/time - посмотреть текущее время и следующую рассылку",
+    ]
+
+    if is_admin(update.effective_user.id):
+        lines.extend(
+            [
+                "",
+                "Команды администратора:",
+                "/users - список подписчиков",
+                "/stats - краткая статистика",
+                "/broadcast текст - ручная рассылка",
+                "/broadcast_report - разослать текущий отчёт всем",
+            ]
+        )
+
+    await update.effective_message.reply_text("\n".join(lines))
+
+
 async def verify_subscription_callback(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -429,7 +500,10 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("stop", stop))
     application.add_handler(CommandHandler("status", status))
     application.add_handler(CommandHandler("report", report))
+    application.add_handler(CommandHandler("time", time_info))
+    application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("users", users))
+    application.add_handler(CommandHandler("stats", stats))
     application.add_handler(CommandHandler("broadcast", broadcast))
     application.add_handler(CommandHandler("broadcast_report", broadcast_report))
     application.add_handler(CallbackQueryHandler(verify_subscription_callback, pattern="^check_subscription$"))
