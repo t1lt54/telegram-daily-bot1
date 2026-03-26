@@ -148,9 +148,7 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    bot_timezone = ZoneInfo(os.getenv("BOT_TIMEZONE", DEFAULT_TIMEZONE))
-    current_date = datetime.now(bot_timezone).date()
-    await update.effective_message.reply_text(build_daily_message(current_date))
+    await update.effective_message.reply_text(get_current_report_text())
 
 
 async def users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -211,6 +209,10 @@ async def verify_subscription_callback(
         else "Подписка подтверждена. Уведомления уже были включены."
     )
     await query.edit_message_text(text)
+    await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text=get_current_report_text(),
+    )
 
 
 def parse_release_date() -> date:
@@ -252,6 +254,12 @@ def build_daily_message(now_date: date) -> str:
         f"{days_after_release} {get_days_word(days_after_release)} назад.\n"
         f"Официальная дата релиза: {release_date.strftime('%d.%m.%Y')}."
     )
+
+
+def get_current_report_text() -> str:
+    bot_timezone = ZoneInfo(os.getenv("BOT_TIMEZONE", DEFAULT_TIMEZONE))
+    current_date = datetime.now(bot_timezone).date()
+    return build_daily_message(current_date)
 
 
 async def check_required_subscription(
@@ -310,6 +318,7 @@ async def subscribe_user_or_prompt(
         else "Ты уже подписан на ежедневные уведомления."
     )
     await update.effective_message.reply_text(text)
+    await update.effective_message.reply_text(get_current_report_text())
 
 
 async def send_daily_message(
@@ -332,9 +341,7 @@ async def daily_notify(context: ContextTypes.DEFAULT_TYPE) -> None:
         logging.info("No subscribers to notify.")
         return
 
-    bot_timezone = ZoneInfo(os.getenv("BOT_TIMEZONE", DEFAULT_TIMEZONE))
-    current_date = datetime.now(bot_timezone).date()
-    message_text = build_daily_message(current_date)
+    message_text = get_current_report_text()
     logging.info("Sending daily notification to %s subscribers.", len(subscribers))
     await send_daily_message(context.application, subscribers, message_text)
 
