@@ -573,21 +573,16 @@ def build_daily_message(now_date: date) -> str:
     if days_left > 0:
         return (
             f"На {now_date.strftime('%d.%m.%Y')} до выхода GTA 6 осталось "
-            f"{days_left} {get_days_word(days_left)}.\n"
-            f"Официальная дата релиза: {release_date.strftime('%d.%m.%Y')}."
+            f"{days_left} {get_days_word(days_left)}."
         )
 
     if days_left == 0:
-        return (
-            f"На {now_date.strftime('%d.%m.%Y')} релиз GTA 6 уже сегодня.\n"
-            f"Официальная дата релиза: {release_date.strftime('%d.%m.%Y')}."
-        )
+        return f"На {now_date.strftime('%d.%m.%Y')} релиз GTA 6 уже сегодня."
 
     days_after_release = abs(days_left)
     return (
         f"На {now_date.strftime('%d.%m.%Y')} GTA 6 вышла "
-        f"{days_after_release} {get_days_word(days_after_release)} назад.\n"
-        f"Официальная дата релиза: {release_date.strftime('%d.%m.%Y')}."
+        f"{days_after_release} {get_days_word(days_after_release)} назад."
     )
 
 
